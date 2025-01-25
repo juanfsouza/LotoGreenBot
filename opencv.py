@@ -1,3 +1,4 @@
+import datetime
 import customtkinter as ctk
 from tkinter import messagebox
 import pyautogui
@@ -126,9 +127,10 @@ class BotApp(ctk.CTk):
 
             self.driver.get("https://lotogreen.com/play/6286")
 
-            time.sleep(20)
+            time.sleep(5)
 
             while self.bot_running:
+                        
                 try:
                     ficha = self.selected_ficha.get()
                     cliques = self.entry_cliques.get()
@@ -136,6 +138,26 @@ class BotApp(ctk.CTk):
                     if not ficha or not cliques.isdigit():
                         messagebox.showerror("Erro", "Selecione uma ficha e informe uma quantidade válida de cliques.")
                         return
+                    
+                    time.sleep(2)
+
+                    self.driver.get("https://web.telegram.org/a/#-1001386141380")
+
+                    time.sleep(20)
+
+                    self.monitor_telegram()
+
+                    self.driver.get("https://lotogreen.com/play/6286")
+
+                    time.sleep(2)
+
+                    WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, "button[class='ml-3 fill-bzMenuText hover:scale-110 md:block'] svg")
+                        )
+                    ).click()
+
+                    time.sleep(1)
 
                     cliques = int(cliques)
                     imagem_ficha = self.ficha_values[ficha]
@@ -161,11 +183,25 @@ class BotApp(ctk.CTk):
             messagebox.showerror("Erro", f"Erro ao interagir com a página: {e}")
             self.label_status.configure(text="Status: Erro")
             self.bot_running = False
-    
 
     def stop_bot(self):
         self.bot_running = False
         self.label_status.configure(text="Status: Parado")
+
+    def clicar_imagem(self, imagem_ficha, tolerancia=0.8):
+        screenshot = pyautogui.screenshot()
+        screenshot_np = np.array(screenshot)
+        screenshot_gray = cv2.cvtColor(screenshot_np, cv2.COLOR_BGR2GRAY)
+        imagem = cv2.imread(imagem_ficha, cv2.IMREAD_GRAYSCALE)
+
+        resultado = cv2.matchTemplate(screenshot_gray, imagem, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(resultado)
+
+        if max_val >= tolerancia:
+            centro_x = max_loc[0] + imagem.shape[1] // 2
+            centro_y = max_loc[1] + imagem.shape[0] // 2
+            pyautogui.moveTo(centro_x, centro_y, duration=0.3)
+            pyautogui.click()
 
     def clicar_ficha(self, imagem_ficha, tolerancia=0.8):
         screenshot = pyautogui.screenshot()
@@ -192,20 +228,61 @@ class BotApp(ctk.CTk):
 
     def monitor_telegram(self):
         try:
+            print("Monitorando mensagens no Telegram...")
             while self.bot_running:
-                # Busca mensagens no grupo
+                # Captura todas as mensagens da tela
                 all_messages = self.driver.find_elements(By.CSS_SELECTOR, "[id^='message-']")
-                last_messages = all_messages[-5:]  # Últimos 5 elementos
+                if not all_messages:
+                    print("Nenhuma mensagem encontrada. Aguardando...")
+                    time.sleep(5)
+                    continue
 
-                for message in last_messages:
-                    message_text = message.text.lower()  # Texto da mensagem em minúsculas
-                    if "vermelho" in message_text:
-                        print(f"Ação: Apostar no VERMELHO - Mensagem: {message_text}")
-                    elif "azul" in message_text:
-                        print(f"Ação: Apostar no AZUL - Mensagem: {message_text}")
-                time.sleep(1)
+                # Obtém a última mensagem
+                last_message = all_messages[-2]
+                message_text = last_message.text.strip()
+                print(f"Mensagem capturada: {message_text}")
+
+                # Tenta capturar o horário da mensagem
+                try:
+                    post_time_element = last_message.find_element(By.CSS_SELECTOR, "[class*='time']")
+                    post_time = post_time_element.text.strip()
+                except Exception as e:
+                    print("Horário não encontrado na mensagem. Ignorando...")
+                    time.sleep(2)
+                    continue
+
+                # Captura o horário atual do sistema
+                current_time = datetime.datetime.now().strftime("%H:%M")
+
+                # Verifica se o horário do post coincide com o horário atual
+                if post_time == current_time:
+                    print(f"[{current_time}] Nova mensagem detectada: {message_text}")
+                    self.realizar_acao(message_text)
+                    print("Saindo do monitoramento...")
+                    break  # Sai do loop após processar a mensagem
+                else:
+                    print(f"Aguardando nova mensagem no horário atual: {current_time}")
+                    time.sleep(2)  # Aguarda antes de verificar novamente
+
         except Exception as e:
             print(f"Erro no monitoramento do Telegram: {e}")
+            self.bot_running = False
+
+    def realizar_acao(self, message_text):
+        if "vermelho" in message_text.lower():
+            print("Ação: Apostar no VERMELHO")
+            self.clicar_postar_vermelho()
+        elif "azul" in message_text.lower():
+            print("Ação: Apostar no AZUL")
+            self.clicar_postar_azul()
+        else:
+            print("Nenhuma ação necessária.")
+
+    def clicar_postar_azul(self):
+        self.clicar_imagem("postar_azul.png")
+
+    def clicar_postar_vermelho(self):
+        self.clicar_imagem("postar_vermelho.png")
 
     def stop_bot(self):
         self.bot_running = False
