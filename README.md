@@ -48,4 +48,4 @@ Editar
 git checkout -b feature/sua-melhoria
 Envie um Pull Request detalhando sua contribuição.
 
-## ⚠️ Aviso: Este bot foi desenvolvido para fins educacionais. O autor não se responsabiliza pelo uso indevido ou quaisquer problemas decorrentes da execução do programa.
+⚠️ Aviso: Este bot foi desenvolvido para fins educacionais. O autor não se responsabiliza pelo uso indevido ou quaisquer problemas decorrentes da execução do programa.
